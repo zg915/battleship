@@ -121,7 +121,7 @@ export default function ReplayPage() {
   if (error) {
     return (
       <main className="flex-1 flex items-center justify-center">
-        <div className="text-red-400">{error}</div>
+        <div className="text-error">{error}</div>
       </main>
     );
   }
@@ -129,7 +129,7 @@ export default function ReplayPage() {
   if (!data) {
     return (
       <main className="flex-1 flex items-center justify-center">
-        <div className="text-slate-400">Loading replay...</div>
+        <div className="text-foreground/60 font-heading">Loading replay...</div>
       </main>
     );
   }
@@ -155,17 +155,17 @@ export default function ReplayPage() {
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.push("/")}
-          className="text-sm text-slate-500 hover:text-slate-300"
+          className="text-sm text-foreground/60 hover:text-foreground transition-colors"
         >
           &larr; Home
         </button>
-        <h1 className="text-2xl font-bold">Replay</h1>
+        <h1 className="text-2xl font-bold font-heading text-foreground">Replay</h1>
       </div>
 
       {/* Player names */}
-      <div className="flex gap-8 text-sm text-slate-400">
+      <div className="flex gap-8 text-sm text-foreground/60">
         {data.players.map((p) => (
-          <span key={p.player_id} className={p.player_id === data.winner ? "text-green-400 font-semibold" : ""}>
+          <span key={p.player_id} className={p.player_id === data.winner ? "text-tertiary font-semibold" : ""}>
             {p.display_name} {p.player_id === data.winner ? "(Winner)" : ""}
           </span>
         ))}
@@ -190,7 +190,7 @@ export default function ReplayPage() {
 
       {/* Move description */}
       {moveDesc && (
-        <div className="text-sm text-yellow-300 min-h-[1.5rem]">{moveDesc}</div>
+        <div className="text-sm text-accent font-medium min-h-[1.5rem]">{moveDesc}</div>
       )}
 
       {/* Controls */}

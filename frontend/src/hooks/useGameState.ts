@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { getGameState, submitPlacement, fireShot } from "@/lib/api";
 import { useWebSocket } from "./useWebSocket";
 import type { GameState, ShipPlacement } from "@/lib/types";
@@ -16,6 +16,12 @@ export function useGameState({ gameId, token, mode }: UseGameStateOptions) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
+  const [myLastShot, setMyLastShot] = useState<[number, number] | null>(null);
+  const [opponentLastShot, setOpponentLastShot] = useState<[number, number] | null>(null);
+  // Use refs for values needed inside fire() to avoid stale closures
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const firingRef = useRef(false);
 
   // Fetch initial state
   useEffect(() => {
@@ -34,7 +40,18 @@ export function useGameState({ gameId, token, mode }: UseGameStateOptions) {
 
   // WebSocket for multiplayer
   const handleWsUpdate = useCallback((newState: GameState) => {
-    setState(newState);
+    setState((prev) => {
+      // Diff shots_received to find the opponent's new shot (order is not guaranteed)
+      const prevSet = new Set(
+        (prev?.my_board?.shots_received ?? []).map(([r, c]) => `${r},${c}`)
+      );
+      const newReceived = newState.my_board?.shots_received;
+      if (newReceived) {
+        const newShot = newReceived.find(([r, c]) => !prevSet.has(`${r},${c}`));
+        if (newShot) setOpponentLastShot(newShot);
+      }
+      return newState;
+    });
   }, []);
 
   const handleWsError = useCallback((msg: string) => {
@@ -69,28 +86,64 @@ export function useGameState({ gameId, token, mode }: UseGameStateOptions) {
 
   const fire = useCallback(
     async (row: number, col: number) => {
+      if (firingRef.current) return;
+
       setError(null);
-      setLastMessage(null);
+      setMyLastShot([row, col]);
+
       try {
         if (mode === "human") {
           send({ type: "fire", row, col });
-        } else {
-          const result = await fireShot(gameId, token, row, col);
-          setState(result.game_state);
-
-          // Build message
-          let msg = `You fired at ${String.fromCharCode(65 + col)}${row + 1}: ${result.result}`;
-          if (result.sunk_ship) msg += ` — Sunk ${result.sunk_ship}!`;
-          if (result.winner) {
-            msg = result.winner === state?.my_player_id ? "Victory!" : "Defeat!";
-          }
-          setLastMessage(msg);
+          return;
         }
+
+        firingRef.current = true;
+
+        // Snapshot current shots as a set before firing
+        const prevReceived = new Set(
+          (stateRef.current?.my_board?.shots_received ?? []).map(([r, c]) => `${r},${c}`)
+        );
+        const result = await fireShot(gameId, token, row, col);
+
+        // Find the AI's new shot by diffing (order is not guaranteed from backend)
+        const newReceived = result.game_state.my_board?.shots_received;
+        const aiShot = newReceived?.find(([r, c]) => !prevReceived.has(`${r},${c}`));
+
+        // Step 1: Update only the opponent board — keep my_board unchanged
+        setState((prev) => {
+          if (!prev) return result.game_state;
+          return {
+            ...prev,
+            opponent_board: result.game_state.opponent_board,
+            phase: result.game_state.phase,
+            winner: result.game_state.winner,
+          };
+        });
+
+        let msg = `You fired at ${String.fromCharCode(65 + col)}${row + 1}: ${result.result}`;
+        if (result.sunk_ship) msg += ` — Sunk ${result.sunk_ship}!`;
+        if (result.winner) {
+          const myId = stateRef.current?.my_player_id;
+          msg = result.winner === myId ? "Victory!" : "Defeat!";
+        }
+        setLastMessage(msg);
+
+        // Step 2: After a short delay, apply my_board + turn change (AI's counter-shot)
+        if (aiShot) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          setOpponentLastShot(aiShot);
+          setState(result.game_state);
+        } else {
+          setState(result.game_state);
+        }
+
+        firingRef.current = false;
       } catch (e: any) {
         setError(e.message);
+        firingRef.current = false;
       }
     },
-    [gameId, token, mode, send, state?.my_player_id]
+    [gameId, token, mode, send]
   );
 
   const refreshState = useCallback(async () => {
@@ -108,6 +161,8 @@ export function useGameState({ gameId, token, mode }: UseGameStateOptions) {
     error,
     lastMessage,
     connected,
+    myLastShot,
+    opponentLastShot,
     placeShips,
     fire,
     refreshState,

@@ -7,3 +7,5 @@ do not need alembic
 3. debug all functions
 
 4. improve UI
+
+the spike: optimal gaming strategy?

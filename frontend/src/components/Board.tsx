@@ -17,6 +17,11 @@ interface BoardProps {
   // Placement preview
   previewCells?: [number, number][];
   previewValid?: boolean;
+  // Last shot highlight
+  lastShot?: [number, number] | null;
+  // Drag-and-drop
+  onCellDragOver?: (e: React.DragEvent, row: number, col: number) => void;
+  onCellDrop?: (e: React.DragEvent, row: number, col: number) => void;
 }
 
 export default function Board({
@@ -29,6 +34,9 @@ export default function Board({
   label,
   previewCells,
   previewValid,
+  lastShot,
+  onCellDragOver,
+  onCellDrop,
 }: BoardProps) {
   // Build cell lookup maps
   const shipCellMap = new Map<string, ShipView>();
@@ -70,16 +78,20 @@ export default function Board({
     }
   }
 
+  const lastShotKey = lastShot ? `${lastShot[0]},${lastShot[1]}` : null;
+
   const colLabels = Array.from({ length: BOARD_SIZE }, (_, i) => String.fromCharCode(65 + i));
   const rowLabels = Array.from({ length: BOARD_SIZE }, (_, i) => String(i + 1));
 
   function getCellStyle(row: number, col: number): string {
     const key = `${row},${col}`;
-    const base = "w-8 h-8 border border-slate-600 transition-colors duration-100 ";
+    const isLastShot = key === lastShotKey;
+    const base = "w-10 h-10 rounded-sm transition-colors duration-100 border-2 "
+      + (isLastShot ? "border-foreground " : "border-border ");
 
     // Preview cells (ship placement)
     if (previewSet.has(key)) {
-      return base + (previewValid ? "bg-green-400/60" : "bg-red-400/60");
+      return base + (previewValid ? "bg-preview-valid" : "bg-preview-invalid");
     }
 
     // Own board
@@ -88,15 +100,15 @@ export default function Board({
       const wasHit = receivedSet.has(key);
 
       if (ship && wasHit) {
-        return base + (ship.is_sunk ? "bg-red-800" : "bg-red-500");
+        return base + (ship.is_sunk ? "bg-sunk" : "bg-hit");
       }
       if (wasHit) {
-        return base + "bg-blue-300"; // miss on our board
+        return base + "bg-miss"; // miss on our board
       }
       if (ship) {
-        return base + "bg-slate-400"; // ship, not hit
+        return base + "bg-ship"; // ship, not hit
       }
-      return base + "bg-sky-900/40"; // water
+      return base + "bg-water"; // water
     }
 
     // Opponent board
@@ -104,17 +116,17 @@ export default function Board({
       const shot = shotMap.get(key);
       if (shot) {
         if (sunkCellSet.has(key)) {
-          return base + "bg-red-800"; // sunk
+          return base + "bg-sunk"; // sunk
         }
         if (shot.result === "hit") {
-          return base + "bg-red-500"; // hit
+          return base + "bg-hit"; // hit
         }
-        return base + "bg-blue-300"; // miss
+        return base + "bg-miss"; // miss
       }
     }
 
     // Empty water
-    return base + (onClick && !disabled ? "bg-sky-900/40 hover:bg-sky-700/60 cursor-pointer" : "bg-sky-900/40");
+    return base + (onClick && !disabled ? "bg-water hover:bg-water-hover cursor-pointer" : "bg-water");
   }
 
   function getCellContent(row: number, col: number): string {
@@ -123,14 +135,14 @@ export default function Board({
     if (ships) {
       const wasHit = receivedSet.has(key);
       const ship = shipCellMap.get(key);
-      if (wasHit && ship) return "✕";
-      if (wasHit) return "•";
+      if (wasHit && ship) return "\u2715";
+      if (wasHit) return "\u2022";
     }
 
     if (shots) {
       const shot = shotMap.get(key);
       if (shot) {
-        return shot.result === "hit" ? "✕" : "•";
+        return shot.result === "hit" ? "\u2715" : "\u2022";
       }
     }
 
@@ -139,13 +151,13 @@ export default function Board({
 
   return (
     <div className="inline-block">
-      <div className="text-sm font-semibold text-center mb-1 text-slate-300">{label}</div>
-      <div className="inline-grid" style={{ gridTemplateColumns: `2rem repeat(${BOARD_SIZE}, 2rem)` }}>
+      <div className="text-base font-semibold font-heading text-center mb-1.5 text-foreground">{label}</div>
+      <div className="inline-grid" style={{ gridTemplateColumns: `2.5rem repeat(${BOARD_SIZE}, 2.5rem)` }}>
         {/* Corner */}
-        <div className="w-8 h-8" />
+        <div className="w-10 h-10" />
         {/* Column headers */}
         {colLabels.map((l) => (
-          <div key={l} className="w-8 h-8 flex items-center justify-center text-xs text-slate-400 font-mono">
+          <div key={l} className="w-10 h-10 flex items-center justify-center text-sm text-foreground/50 font-mono">
             {l}
           </div>
         ))}
@@ -153,7 +165,7 @@ export default function Board({
         {/* Rows */}
         {Array.from({ length: BOARD_SIZE }, (_, row) => (
           <div key={row} className="contents">
-            <div className="w-8 h-8 flex items-center justify-center text-xs text-slate-400 font-mono">
+            <div className="w-10 h-10 flex items-center justify-center text-sm text-foreground/50 font-mono">
               {rowLabels[row]}
             </div>
             {Array.from({ length: BOARD_SIZE }, (_, col) => (
@@ -161,8 +173,10 @@ export default function Board({
                 key={col}
                 className={getCellStyle(row, col)}
                 onClick={() => onClick && !disabled && onClick(row, col)}
+                onDragOver={onCellDragOver ? (e) => onCellDragOver(e, row, col) : undefined}
+                onDrop={onCellDrop ? (e) => onCellDrop(e, row, col) : undefined}
               >
-                <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white">
+                <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white [text-shadow:_0_1px_2px_rgba(0,0,0,0.3)]">
                   {getCellContent(row, col)}
                 </div>
               </div>

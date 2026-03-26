@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins, Lora } from "next/font/google";
 import "./globals.css";
+import RulesButton from "@/components/RulesButton";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -31,6 +32,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-body">
         {children}
+        <RulesButton />
       </body>
     </html>
   );

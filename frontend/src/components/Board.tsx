@@ -22,6 +22,10 @@ interface BoardProps {
   // Drag-and-drop
   onCellDragOver?: (e: React.DragEvent, row: number, col: number) => void;
   onCellDrop?: (e: React.DragEvent, row: number, col: number) => void;
+  // Strategy assist heatmap
+  heatmapScores?: Map<string, number> | null;
+  heatmapMaxScore?: number;
+  heatmapRecommended?: Set<string> | null;
 }
 
 export default function Board({
@@ -37,6 +41,9 @@ export default function Board({
   lastShot,
   onCellDragOver,
   onCellDrop,
+  heatmapScores,
+  heatmapMaxScore,
+  heatmapRecommended,
 }: BoardProps) {
   // Build cell lookup maps
   const shipCellMap = new Map<string, ShipView>();
@@ -79,6 +86,29 @@ export default function Board({
   }
 
   const lastShotKey = lastShot ? `${lastShot[0]},${lastShot[1]}` : null;
+
+  function getCellHeatmapStyle(row: number, col: number): React.CSSProperties | undefined {
+    if (!heatmapScores || !heatmapMaxScore || heatmapMaxScore === 0) return undefined;
+    const key = `${row},${col}`;
+
+    // Only apply to unfired cells on the opponent board
+    if (shotMap.has(key) || sunkCellSet.has(key)) return undefined;
+
+    const score = heatmapScores.get(key) ?? 0;
+    if (score === 0) {
+      return { backgroundColor: "var(--heatmap-impossible)" };
+    }
+
+    const intensity = score / heatmapMaxScore;
+    // Green family: faint sage → saturated green
+    // Matches the existing tertiary color (#788c5d)
+    const sat = 12 + intensity * 30;    // 12% → 42%
+    const light = 78 - intensity * 22;  // 78% → 56%
+    return {
+      backgroundColor: `hsl(100, ${sat}%, ${light}%)`,
+      cursor: "pointer",
+    };
+  }
 
   const colLabels = Array.from({ length: BOARD_SIZE }, (_, i) => String.fromCharCode(65 + i));
   const rowLabels = Array.from({ length: BOARD_SIZE }, (_, i) => String(i + 1));
@@ -146,6 +176,11 @@ export default function Board({
       }
     }
 
+    // Strategy assist: show clover on best cells
+    if (heatmapRecommended?.has(key)) {
+      return "\u{1F340}";
+    }
+
     return "";
   }
 
@@ -172,6 +207,7 @@ export default function Board({
               <div
                 key={col}
                 className={getCellStyle(row, col)}
+                style={getCellHeatmapStyle(row, col)}
                 onClick={() => onClick && !disabled && onClick(row, col)}
                 onDragOver={onCellDragOver ? (e) => onCellDragOver(e, row, col) : undefined}
                 onDrop={onCellDrop ? (e) => onCellDrop(e, row, col) : undefined}

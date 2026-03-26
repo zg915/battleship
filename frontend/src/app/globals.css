@@ -24,6 +24,7 @@
   --sunk: #8b4430;
   --preview-valid: rgba(120, 140, 93, 0.35);
   --preview-invalid: rgba(217, 119, 87, 0.35);
+  --heatmap-impossible: #d4d3cc;
 }
 
 @theme inline {
@@ -49,6 +50,7 @@
   --color-sunk: var(--sunk);
   --color-preview-valid: var(--preview-valid);
   --color-preview-invalid: var(--preview-invalid);
+  --color-heatmap-impossible: var(--heatmap-impossible);
   --font-heading: var(--font-poppins);
   --font-body: var(--font-lora);
 }

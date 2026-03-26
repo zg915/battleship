@@ -1,9 +1,10 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { joinGame } from "@/lib/api";
 import { useGameState } from "@/hooks/useGameState";
+import { useStrategyAssist } from "@/hooks/useStrategyAssist";
 import Board from "@/components/Board";
 import ShipPlacer from "@/components/ShipPlacer";
 import GameStatus from "@/components/GameStatus";
@@ -54,6 +55,17 @@ export default function GamePage() {
 
   const { state, loading, error, lastMessage, myLastShot, opponentLastShot, fire, placeShips, refreshState } =
     useGameState({ gameId, token: token || "", mode });
+
+  const strategyAssist = useStrategyAssist({
+    shots: state?.opponent_board?.shots ?? [],
+    sunkShips: state?.opponent_board?.sunk_ships ?? [],
+    enabled: state?.phase === "active",
+  });
+
+  const heatmapRecommendedSet = useMemo(() => {
+    if (!strategyAssist.result) return null;
+    return new Set(strategyAssist.result.recommended.map(([r, c]) => `${r},${c}`));
+  }, [strategyAssist.result]);
 
   if (!initialized) {
     return (
@@ -124,7 +136,12 @@ export default function GamePage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => router.push("/")}
+          onClick={() => {
+            if (state.phase === "active" || state.phase === "placement") {
+              if (!confirm("Leave game? Your current progress will be lost.")) return;
+            }
+            router.push("/");
+          }}
           className="text-sm text-foreground/60 hover:text-foreground transition-colors"
         >
           &larr; Home
@@ -178,32 +195,62 @@ export default function GamePage() {
 
       {/* Active / Finished phase — show both boards */}
       {(state.phase === "active" || state.phase === "finished") && (
-        <div className="flex flex-wrap justify-center gap-8">
-          {/* My board */}
-          {state.my_board && (
-            <Board
-              label="Your Board"
-              ships={state.my_board.ships as ShipView[]}
-              shotsReceived={state.my_board.shots_received}
-              lastShot={opponentLastShot}
-            />
-          )}
-
-          {/* Opponent board + ship tracker */}
-          {state.opponent_board && (
-            <div className="flex gap-4 items-start">
-              <Board
-                label="Opponent Board"
-                shots={state.opponent_board.shots}
-                sunkShips={state.opponent_board.sunk_ships}
-                onClick={handleFire}
-                disabled={!isMyTurn || state.phase === "finished"}
-                lastShot={myLastShot}
-              />
-              <ShipTracker sunkShips={state.opponent_board.sunk_ships} />
+        <>
+          {/* Strategy Assist Toggle — only during active phase */}
+          {state.phase === "active" && (
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={strategyAssist.toggle}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${strategyAssist.isOn ? "bg-accent" : "bg-border"}`}
+                  role="switch"
+                  aria-checked={strategyAssist.isOn}
+                  aria-label="Toggle strategy assist"
+                >
+                  <span
+                    className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${strategyAssist.isOn ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </button>
+                <span className="text-sm font-heading text-foreground/70">
+                  Strategy Assist
+                </span>
+              </div>
+              <span className={`text-xs font-mono h-4 ${strategyAssist.isOn && strategyAssist.result ? "text-foreground/50" : "invisible"}`}>
+                {strategyAssist.result?.explanation ?? "\u00A0"}
+              </span>
             </div>
           )}
-        </div>
+
+          <div className="flex flex-wrap justify-center gap-8">
+            {/* My board */}
+            {state.my_board && (
+              <Board
+                label="Your Board"
+                ships={state.my_board.ships as ShipView[]}
+                shotsReceived={state.my_board.shots_received}
+                lastShot={opponentLastShot}
+              />
+            )}
+
+            {/* Opponent board + ship tracker */}
+            {state.opponent_board && (
+              <div className="flex gap-4 items-start">
+                <Board
+                  label="Opponent Board"
+                  shots={state.opponent_board.shots}
+                  sunkShips={state.opponent_board.sunk_ships}
+                  onClick={handleFire}
+                  disabled={!isMyTurn || state.phase === "finished"}
+                  lastShot={myLastShot}
+                  heatmapScores={strategyAssist.result?.scores ?? null}
+                  heatmapMaxScore={strategyAssist.result?.maxScore ?? 0}
+                  heatmapRecommended={heatmapRecommendedSet}
+                />
+                <ShipTracker sunkShips={state.opponent_board.sunk_ships} />
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Finished — action buttons */}

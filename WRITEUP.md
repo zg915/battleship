@@ -122,3 +122,5 @@ This whole project is much interesting than I expected. And I actually really en
 ---
 
 The writeup is 90% written by ChatGPT. For the parts you will find grammar mistakes, that is written by me :)
+
+Final notice: Since all service are deployed on free server, there might be a cold start problem when starting the first time :(

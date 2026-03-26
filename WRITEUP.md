@@ -119,6 +119,13 @@ Once everything was working:
 
 This whole project is much interesting than I expected. And I actually really enjoying building it. Especially for the part where I think about and research into the optimal strategy. It is a lot of fun!
 
+## References
+https://www.youtube.com/watch?v=8FctDuTfcO8
+
+https://cliambrown.com/battleship/
+
+https://cliambrown.com/battleship/methodology.php
+
 ---
 
 The writeup is 90% written by ChatGPT. For the parts you will find grammar mistakes, that is written by me :)

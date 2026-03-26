@@ -11,7 +11,6 @@ def generate_ai_move(state: GameState, ai_id: str) -> tuple[int, int]:
     Hunt mode: fire at random unfired cells with parity optimization.
     Target mode: probe adjacent cells after a hit on an unsunk ship.
     """
-    #TODO: in target mode, we need more clever since ships are all one direction
     ai_player = state.players[ai_id]
     opponent_id = _get_opponent_id(state, ai_id)
     opponent = state.players[opponent_id]
@@ -70,7 +69,6 @@ def generate_ai_placement(ships_config: dict[str, int]) -> list[dict]:
                 placements.append({"type": ship_type, "cells": cells})
                 break
         else:
-            #TODO: we do not want failed placement
             raise RuntimeError(f"Failed to place {ship_type} after 200 attempts")
 
     return placements
